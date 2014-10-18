@@ -1,25 +1,93 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+Study of activity monitoring data
+=================================
 
+## Loading and preprocessing the data.
 
-## Loading and preprocessing the data
-
-
-
+```{r,results="hide"}
+setwd("D:\\Mes Documents\\Rscript")
+x<-read.csv(".\\activity.csv",header=TRUE, sep=",",dec=".", na.strings = "NA")
+x$date<-as.Date(x$date, "%Y-%m-%d")
+```
 ## What is mean total number of steps taken per day?
+First, we plot the total number of steps by day, for all interval
+```{r}
+y<-aggregate(x$steps , list(date=x$date), sum)
+names(y)<- c("date","steps")
+with(y,plot(date,steps,type="h", xlab="date", ylab="Total number of steps"))
+```
 
-
-
+Then, we calculate the mean and median value of steps for each date.
+```{r sowtable, results='asis'}
+z1<-aggregate(x$steps , list(date=x$date), mean, na.rm=TRUE)
+names(z1)<- c("date","Mean steps")
+z2<-aggregate(x$steps , list(date=x$date), median, na.rm=TRUE)
+names(z2)<- c("date","Median steps")
+z<-merge(z1,z2,by.x="date",by.y="date")
+z$date<-as.character(z$date)
+library(xtable)
+xt<-xtable(z[,c(1:3)])
+print(xt,type="html")
+```
 ## What is the average daily activity pattern?
+I make a histogram of the total number of steps taken each day :
+```{r}
+t<-aggregate(x$steps , list(date=x$interval), mean, na.rm=TRUE)
+names(t)<- c("interval","steps")
+with(t,plot(interval,steps,type="l", xlab="Interval", ylab="Average number of steps"))
+```
 
-
-
+Then I calculate the steps for which the mean number of steps is maximum.
+```{r}
+t[t$steps==max(t$steps),][,c(1)]
+```
 ## Imputing missing values
 
+The total number of NA rows :
+```{r}
+sum(is.na(x$steps))
+```
 
+I fill the NA with the mean value for the day.
+
+```{r}
+x_fill<-merge(x,t,by.x="interval",by.y="interval")
+names(x_fill)<-c("interval","steps","date","mean_steps")
+for(i in 1:nrow(x_fill)) {
+  if (is.na(x_fill[i,2]))  x_fill[i,2]<- x_fill[i,4]
+} 
+x_fill<-x_fill[,c(1:3)]
+```
+
+Then, I calculate the mean and median value of steps for each date with ten filled data.
+
+```{r results='asis'}
+z1<-aggregate(x_fill$steps , list(date=x_fill$date), mean, na.rm=TRUE)
+names(z1)<- c("date","Mean steps")
+z2<-aggregate(x_fill$steps , list(date=x_fill$date), median, na.rm=TRUE)
+names(z2)<- c("date","Median steps")
+z<-merge(z1,z2,by.x="date",by.y="date")
+z$date<-as.character(z$date)
+library(xtable)
+xt<-xtable(z[,c(1:3)])
+print(xt,type="html")
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+I calculate the type of the day in a new column.
+```{r}
+x_fill$typeDay <- "weekday"
+for(i in 1:nrow(x_fill)) {
+  if (weekdays(x_fill[i,3])=="samedi"||weekdays(x_fill[i,3])=="dimanche")  x_fill[i,4]<- "weekend"
+} 
+x_fill$typeDay<-as.factor(x_fill$typeDay)
+```
+
+Then I plot the average number of steps by interval and type of the day.
+```{r}
+library(lattice)
+t<-aggregate(x_fill$steps , list(date=x_fill$interval, typeDay=x_fill$typeDay), mean, na.rm=TRUE)
+names(t)<- c("interval","typeDay","meanSteps")
+xyplot(meanSteps ~ interval |typeDay, type="l", data=t, ylab="Average number of steps",layout = c(1, 2))
+
+```
+
